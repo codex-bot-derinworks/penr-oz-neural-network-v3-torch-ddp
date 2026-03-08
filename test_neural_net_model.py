@@ -414,6 +414,16 @@ class TestNeuralNetModel(unittest.TestCase):
         with self.assertRaises(KeyError):
             NeuralNetworkModel.deserialize("nonexistent_model")
 
+    @patch("neural_net_model.shutil.copyfile", side_effect=FileNotFoundError("missing model file"))
+    @patch("neural_net_model.os.makedirs")
+    @patch("neural_net_model.os.path.exists", return_value=False)
+    def test_deserialize_cache_miss_creates_shm_models_dir(self, _mock_exists, mock_makedirs, _mock_copyfile):
+        with patch.object(NeuralNetworkModel, "SHM_PATH", "/tmp/shared"):
+            with self.assertRaises(KeyError):
+                NeuralNetworkModel.deserialize("test")
+
+        mock_makedirs.assert_called_once_with("/tmp/shared/models", exist_ok=True)
+
     @unittest.skipUnless(os.path.exists(NeuralNetworkModel.SHM_PATH), f"Requires {NeuralNetworkModel.SHM_PATH} (shared memory)")
     def test_delete(self):
         model = NeuralNetworkModel("test", Mapper([{"linear": {"in_features": 9, "out_features": 9}}],
