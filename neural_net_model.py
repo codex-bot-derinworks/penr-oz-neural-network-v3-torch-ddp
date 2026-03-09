@@ -125,7 +125,9 @@ class NeuralNetworkModel(nn.Module):
             if not os.path.exists(model_in_shm_path):
                 if ddp.master_proc():
                     log.info(f"Cache miss: copying from {model_path}")
-                shutil.copyfile(model_path, model_in_shm_path)
+                    os.makedirs(os.path.dirname(model_in_shm_path), exist_ok=True)
+                    shutil.copyfile(model_path, model_in_shm_path)
+                ddp.ddp_barrier()
 
             if ddp.master_proc():
                 log.info(f"Retrieving model from {model_in_shm_path}...")

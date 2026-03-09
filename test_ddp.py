@@ -107,6 +107,24 @@ class TestDDP(unittest.TestCase):
         self.assertTrue(mock_open.called)
         self.assertTrue(mock_dict_config.called)
 
+    @patch('ddp.barrier')
+    @patch('ddp.is_initialized', return_value=True)
+    @patch('ddp.is_available', return_value=True)
+    def test_ddp_barrier_when_multi_process(self, _mock_available, _mock_initialized, mock_barrier):
+        with patch.dict(os.environ, {"RANK": "0", "WORLD_SIZE": "2"}):
+            ddp.ddp_barrier()
+
+        mock_barrier.assert_called_once_with()
+
+    @patch('ddp.barrier')
+    @patch('ddp.is_initialized', return_value=True)
+    @patch('ddp.is_available', return_value=True)
+    def test_ddp_barrier_noop_when_single_process(self, _mock_available, _mock_initialized, mock_barrier):
+        with patch.dict(os.environ, {"RANK": "0", "WORLD_SIZE": "1"}):
+            ddp.ddp_barrier()
+
+        mock_barrier.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

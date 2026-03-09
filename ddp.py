@@ -3,7 +3,7 @@ import logging
 from multiprocessing import cpu_count
 from typing import Callable
 from torch import cuda, Tensor
-from torch.distributed import all_reduce, get_backend, ReduceOp
+from torch.distributed import all_reduce, barrier, get_backend, is_available, is_initialized, ReduceOp
 from torch.distributed.launcher.api import elastic_launch, LaunchConfig
 
 log = logging.getLogger(__name__)
@@ -27,6 +27,10 @@ def ddp_all_reduce(tensor: Tensor):
     else:
         all_reduce(tensor, op=ReduceOp.SUM)
         tensor.div_(ddp_world_size())
+
+def ddp_barrier():
+    if is_ddp() and ddp_world_size() > 1 and is_available() and is_initialized():
+        barrier()
 
 def reconfig_logging():
     import json

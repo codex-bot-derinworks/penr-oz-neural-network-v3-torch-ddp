@@ -414,6 +414,34 @@ class TestNeuralNetModel(unittest.TestCase):
         with self.assertRaises(KeyError):
             NeuralNetworkModel.deserialize("nonexistent_model")
 
+    @patch("neural_net_model.shutil.copyfile", side_effect=FileNotFoundError("missing model file"))
+    @patch("neural_net_model.os.makedirs")
+    @patch("neural_net_model.os.path.exists", return_value=False)
+    def test_deserialize_cache_miss_creates_shm_models_dir(self, _mock_exists, mock_makedirs, mock_copyfile):
+        with patch.object(NeuralNetworkModel, "SHM_PATH", "/tmp/shared"):
+            with self.assertRaises(KeyError):
+                NeuralNetworkModel.deserialize("test")
+
+        mock_makedirs.assert_called_once_with("/tmp/shared/models", exist_ok=True)
+        mock_copyfile.assert_called_once_with("models/model_test.pth", "/tmp/shared/models/model_test.pth")
+
+    @patch("neural_net_model.ddp.ddp_barrier")
+    @patch("neural_net_model.ddp.master_proc", return_value=False)
+    @patch("neural_net_model.shutil.copyfile")
+    @patch("neural_net_model.os.makedirs")
+    @patch("neural_net_model.os.path.exists", return_value=False)
+    def test_deserialize_cache_miss_non_master_waits_for_ddp_barrier(self, _mock_exists, mock_makedirs,
+                                                                      mock_copyfile, _mock_master_proc,
+                                                                      mock_ddp_barrier):
+        with patch.object(NeuralNetworkModel, "SHM_PATH", "/tmp/shared"):
+            with self.assertRaises(KeyError):
+                NeuralNetworkModel.deserialize("test")
+
+        mock_makedirs.assert_not_called()
+        mock_copyfile.assert_not_called()
+        mock_ddp_barrier.assert_called_once_with()
+
+
     @unittest.skipUnless(os.path.exists(NeuralNetworkModel.SHM_PATH), f"Requires {NeuralNetworkModel.SHM_PATH} (shared memory)")
     def test_delete(self):
         model = NeuralNetworkModel("test", Mapper([{"linear": {"in_features": 9, "out_features": 9}}],
